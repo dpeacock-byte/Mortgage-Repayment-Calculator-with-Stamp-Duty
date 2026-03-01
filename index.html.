@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <title>UK Mortgage & Stamp Duty Calculator</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 700px; margin: 40px auto; padding: 20px; color: #333; background-color: #f0f4f8; }
+        .card { border-radius: 12px; padding: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); background: #fff; border-top: 8px solid #005ea5; }
+        h2 { color: #1c2e4a; text-align: center; margin-top: 0; }
+        h3 { border-bottom: 2px solid #eee; padding-bottom: 10px; color: #005ea5; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        label { display: block; margin-top: 15px; font-weight: 600; font-size: 0.9em; }
+        input, select { width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
+        button { width: 100%; padding: 16px; margin-top: 30px; background: #005ea5; color: white; border: none; border-radius: 6px; font-size: 1.2em; font-weight: bold; cursor: pointer; }
+        button:hover { background: #00457c; }
+        .result-box { margin-top: 25px; padding: 20px; background: #f3f7fa; border-radius: 8px; display: none; }
+        .stat-row { display: flex; justify-content: space-between; margin-bottom: 8px; padding: 8px 0; border-bottom: 1px solid #e0e0e0; }
+        .highlight { font-weight: bold; font-size: 1.1em; }
+        .tax-highlight { color: #d4351c; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.85em; }
+        th { background: #005ea5; color: white; padding: 10px; text-align: left; }
+        td { padding: 8px; border-bottom: 1px solid #eee; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>UK Home Buyer Calculator</h2>
+    
+    <h3>1. Property & Stamp Duty</h3>
+    <label>Purchase Price (£)</label>
+    <input type="number" id="price" value="350000">
+    
+    <label>Buyer Type</label>
+    <select id="buyerType">
+        <option value="standard">Moving Home (Standard)</option>
+        <option value="firstTime">First-Time Buyer</option>
+        <option value="additional">Additional Property / Buy-to-Let</option>
+    </select>
+
+    <h3>2. Mortgage Details</h3>
+    <div class="grid">
+        <div>
+            <label>Deposit (£)</label>
+            <input type="number" id="deposit" value="50000">
+        </div>
+        <div>
+            <label>Total Term (Years)</label>
+            <input type="number" id="totalYears" value="25">
+        </div>
+    </div>
+
+    <div class="grid">
+        <div>
+            <label>Initial Fix Rate (%)</label>
+            <input type="number" id="p1Rate" value="4.5" step="0.01">
+        </div>
+        <div>
+            <label>Fix Length (Years)</label>
+            <input type="number" id="p1Years" value="5">
+        </div>
+    </div>
+
+    <label>Follow-on Rate / SVR (%)</label>
+    <input type="number" id="p2Rate" value="7.5" step="0.01">
+
+    <button onclick="calculateAll()">Calculate Totals</button>
+
+    <div id="results" class="result-box">
+        <h3>Upfront Costs</h3>
+        <div class="stat-row"><span>Stamp Duty (SDLT):</span> <span class="tax-highlight" id="sdltResult"></span></div>
+        <div class="stat-row"><span>Total Cash Needed (Deposit + SDLT):</span> <span class="highlight" id="totalCash"></span></div>
+
+        <h3>Monthly Repayments</h3>
+        <div class="stat-row"><span>Initial Monthly Payment:</span> <span class="highlight" id="m1"></span></div>
+        <div class="stat-row"><span>Follow-on Monthly Payment:</span> <span class="highlight" id="m2"></span></div>
+        
+        <h3>Full Term Summary</h3>
+        <div class="stat-row"><span>Total Interest Over Term:</span> <span class="tax-highlight" id="totalInt"></span></div>
+        <div class="stat-row"><span>Total Cost of Mortgage:</span> <span class="highlight" id="grandTotal"></span></div>
+    </div>
+</div>
+
+<script>
+function calculateSDLT(price, type) {
+    let tax = 0;
+    if (type === 'firstTime') {
+        if (price <= 425000) tax = 0;
+        else if (price <= 625000) tax = (price - 425000) * 0.05;
+        else return calculateSDLT(price, 'standard'); // No relief over £625k
+    } else {
+        if (price > 1500000) { tax += (price - 1500000) * 0.12; price = 1500000; }
+        if (price > 925000) { tax += (price - 925000) * 0.10; price = 925000; }
+        if (price > 250000) { tax += (price - 250000) * 0.05; price = 250000; }
+    }
+    if (type === 'additional') tax += (parseFloat(document.getElementById('price').value) * 0.03);
+    return tax;
+}
+
+function calculateAll() {
+    const price = parseFloat(document.getElementById('price').value);
+    const deposit = parseFloat(document.getElementById('deposit').value);
+    const P = price - deposit; // Loan Amount
+    const type = document.getElementById('buyerType').value;
+    
+    const totalYears = parseInt(document.getElementById('totalYears').value);
+    const p1Years = parseInt(document.getElementById('p1Years').value);
+    const r1 = parseFloat(document.getElementById('p1Rate').value) / 100 / 12;
+    const r2 = parseFloat(document.getElementById('p2Rate').value) / 100 / 12;
+
+    const totalMonths = totalYears * 12;
+    const p1Months = p1Years * 12;
+
+    // SDLT
+    const sdlt = calculateSDLT(price, type);
+
+    // Mortgage Logic
+    const m1 = P * (r1 * Math.pow(1 + r1, totalMonths)) / (Math.pow(1 + r1, totalMonths) - 1);
+    const balanceAfterP1 = (P * Math.pow(1 + r1, p1Months)) - (m1 * (Math.pow(1 + r1, p1Months) - 1) / r1);
+    const m2 = balanceAfterP1 * (r2 * Math.pow(1 + r2, totalMonths - p1Months)) / (Math.pow(1 + r2, totalMonths - p1Months) - 1);
+
+    const totalPaid = (m1 * p1Months) + (m2 * (totalMonths - p1Months));
+    const totalInterest = totalPaid - P;
+
+    // Format & Display
+    const fmt = new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' });
+    document.getElementById('sdltResult').innerText = fmt.format(sdlt);
+    document.getElementById('totalCash').innerText = fmt.format(sdlt + deposit);
+    document.getElementById('m1').innerText = fmt.format(m1);
+    document.getElementById('m2').innerText = fmt.format(m2);
+    document.getElementById('totalInt').innerText = fmt.format(totalInterest);
+    document.getElementById('grandTotal').innerText = fmt.format(totalPaid);
+    
+    document.getElementById('results').style.display = 'block';
+}
+</script>
+
+</body>
+</html>
